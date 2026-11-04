@@ -1,0 +1,13 @@
+services:
+  trustvault:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - trustvault_data:/srv/trustvault/data
+      - trustvault_files:/srv/trustvault/private_storage
+volumes:
+  trustvault_data:
+  trustvault_files:

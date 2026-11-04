@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrustVault</title><style>
+:root{font-family:Inter,system-ui,Arial;color:#172033;background:#f3f6fb}*{box-sizing:border-box}
+body{margin:0}.top{background:#111c35;color:white;padding:22px 5%;display:flex;justify-content:space-between;align-items:center}
+main{max-width:1100px;margin:28px auto;padding:0 18px}.card{background:white;padding:22px;border-radius:14px;box-shadow:0 5px 24px #18294a12;margin-bottom:18px}
+h1{margin:0;font-size:24px}h2{margin-top:0;font-size:19px}.muted{color:#64748b;font-size:13px}
+input,select,button{padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;margin:4px}
+button{background:#2857c5;color:white;border:0;cursor:pointer}button.secondary{background:#e8eefb;color:#1e40af}
+.row{display:flex;gap:8px;flex-wrap:wrap}input{min-width:180px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:12px;border-bottom:1px solid #e5eaf2;font-size:14px}
+.hidden{display:none}.status{padding:8px;background:#eef4ff;border-radius:8px;margin:10px 0;white-space:pre-wrap}
+</style></head><body><header class="top"><h1>🔐 TrustVault</h1><span>Secure document sharing & audit</span></header>
+<main><section id="login" class="card"><h2>Sign in</h2><div class="row"><input id="username" placeholder="Username" value="owner"><input id="password" type="password" placeholder="Password" value="Owner@12345"><button onclick="login()">Login</button></div><p class="muted">Demo accounts are listed in README.md. Change them before deployment.</p></section>
+<section id="app" class="hidden"><div class="card"><div class="row" style="justify-content:space-between"><div><h2 id="welcome">Documents</h2><p class="muted">Access is checked by the server for every operation.</p></div><button class="secondary" onclick="logout()">Logout</button></div>
+<div class="row"><input id="q" placeholder="Search document name" oninput="loadDocs()"><input id="categoryFilter" placeholder="Category" oninput="loadDocs()"><button class="secondary" onclick="loadDocs()">Refresh</button></div>
+<table><thead><tr><th>Document</th><th>Category</th><th>Owner</th><th>Permission</th><th>Actions</th></tr></thead><tbody id="docs"></tbody></table></div>
+<div class="card" id="uploadBox"><h2>Upload document</h2><div class="row"><input id="file" type="file"><input id="category" placeholder="Category" value="General"><button onclick="upload()">Upload</button></div><p class="muted">Allowed: PDF, TXT, PNG, JPG, DOCX. Maximum 10 MB.</p></div>
+<div class="card"><h2>Share a document</h2><div class="row"><input id="shareId" placeholder="Document ID"><input id="shareUser" placeholder="Username"><select id="sharePerm"><option>read</option><option>edit</option></select><button onclick="share()">Grant access</button><button class="secondary" onclick="revoke()">Revoke</button></div></div>
+<div class="card hidden" id="adminBox"><h2>Admin activity</h2><button onclick="audit()">Load audit trail</button><button class="secondary" onclick="verify()">Verify hash chain</button><pre id="auditOut" style="white-space:pre-wrap;overflow:auto"></pre></div>
+</section><div id="message" class="status">Sign in to continue.</div></main>
+<script>
+let token='',me=null;const msg=t=>document.getElementById('message').textContent=t;
+const headers=()=>({'Authorization':'Bearer '+token});
+async function api(url,opt={}){opt.headers={...headers(),...(opt.headers||{})};let r=await fetch(url,opt);let d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||r.statusText);return d}
+async function login(){try{let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username.value,password:password.value})});let d=await r.json();if(!r.ok)throw Error(d.detail);token=d.access_token;me=d.user;loginPanel();welcome.textContent='Welcome, '+me.username+' ('+me.role+')';adminBox.classList.toggle('hidden',me.role!=='admin');uploadBox.classList.toggle('hidden',me.role!=='owner');await loadDocs();msg('Signed in successfully.')}catch(e){msg(e.message)}}
+function loginPanel(){document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden')}
+function logout(){token='';me=null;document.getElementById('app').classList.add('hidden');document.getElementById('login').classList.remove('hidden');msg('Signed out.')}
+async function loadDocs(){if(!token)return;try{let p=new URLSearchParams({q:q.value||'',category:categoryFilter.value||''});let rows=await api('/api/documents?'+p);docs.innerHTML=rows.map(d=>`<tr><td>${esc(d.filename)}<div class="muted">${d.id}</div></td><td>${esc(d.category)}</td><td>${esc(d.owner_name)}</td><td>${d.permission}</td><td><button onclick="downloadDoc('${d.id}')">Download</button><button class="secondary" onclick="pick('${d.id}')">Share</button></td></tr>`).join('')||'<tr><td colspan="5">No accessible documents.</td></tr>'}catch(e){msg(e.message)}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function pick(id){shareId.value=id;msg('Selected document '+id)}
+async function upload(){try{let f=file.files[0];if(!f)throw Error('Choose a file');let fd=new FormData();fd.append('file',f);fd.append('category',category.value);let d=await api('/api/documents',{method:'POST',body:fd});msg('Uploaded: '+d.id);await loadDocs()}catch(e){msg(e.message)}}
+async function downloadDoc(id){try{let r=await fetch('/api/documents/'+id+'/download',{headers:headers()});if(!r.ok){let d=await r.json();throw Error(d.detail)}let b=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='document';a.click();URL.revokeObjectURL(a.href);msg('Download requested.')}catch(e){msg(e.message)}}
+async function share(){try{let d=await api('/api/documents/'+shareId.value+'/permissions/'+encodeURIComponent(shareUser.value),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:shareUser.value,permission:sharePerm.value})});msg(JSON.stringify(d));await loadDocs()}catch(e){msg(e.message)}}
+async function revoke(){try{let d=await api('/api/documents/'+shareId.value+'/permissions/'+encodeURIComponent(shareUser.value),{method:'DELETE'});msg(JSON.stringify(d));await loadDocs()}catch(e){msg(e.message)}}
+async function audit(){try{auditOut.textContent=JSON.stringify(await api('/api/admin/audit'),null,2)}catch(e){msg(e.message)}}
+async function verify(){try{auditOut.textContent=JSON.stringify(await api('/api/admin/audit/verify'),null,2)}catch(e){msg(e.message)}}
+</script></body></html>
