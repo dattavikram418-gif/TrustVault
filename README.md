@@ -1,4 +1,5 @@
 # TrustVault
+<<<<<<< HEAD
 
 A security-first document-sharing MVP built with FastAPI, SQLite and private filesystem storage.
 
@@ -106,3 +107,6 @@ Set strong secrets in `.env` first. Docker volumes persist the database and priv
 See `THREATS.md` for the threat model and accepted risks, and `PROMPTS.md` for the AI prompt log. The prompt log contains commit placeholders: replace them with real commit URLs as you work; do not invent hashes. Record additional dated entries and commits throughout development.
 
 This is a runnable MVP and interview/demo foundation, not a claim of production security certification. Review the limitations in `THREATS.md` before real use.
+=======
+TrustVault is a secure document-sharing platform built with Python and FastAPI. It features role-based access control, secure authentication, document upload and management, read/edit permissions, access control, and audit logging to track user activities and protect sensitive documents.
+>>>>>>> 75006397e51a8a69571f450c5485675d133c8ecd
